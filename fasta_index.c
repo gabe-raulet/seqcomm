@@ -160,6 +160,15 @@ int fasta_index_read(fasta_index_t *faidx, char const *fname, commgrid_t const *
     return 0;
 }
 
+int fasta_index_free(fasta_index_t *faidx)
+{
+    if (!faidx) return -1;
+
+    free(faidx->records);
+    *faidx = (fasta_index_t){0};
+    return 0;
+}
+
 void fasta_index_log(const fasta_index_t faidx, char const *log_fname_prefix)
 {
     size_t num_records;

@@ -186,3 +186,15 @@ void seq_store_log(const seq_store_t store, char const *fname_prefix, MPI_Comm c
         free(seq);
     }
 }
+
+int seq_store_free(seq_store_t *store)
+{
+    if (!store) return -1;
+
+    free(store->buf);
+    free(store->lengths);
+    free(store->offsets);
+    *store = (seq_store_t){0};
+
+    return 0;
+}

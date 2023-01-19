@@ -15,6 +15,7 @@ typedef struct
 } seq_store_t;
 
 int seq_store_read(seq_store_t *store, char const *fname, const fasta_index_t faidx);
+int seq_store_free(seq_store_t *store);
 void seq_store_log(const seq_store_t store, char const *fname_prefix, MPI_Comm comm);
 int seq_store_get(const seq_store_t store, size_t id, char **seq);
 

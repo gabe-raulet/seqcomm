@@ -4,6 +4,8 @@
 #include <assert.h>
 #include "mpiutil.h"
 
+commgrid_t grid;
+
 /*
  * 1. Master process reads .fai file and parses each line into a fasta record.
  *
@@ -29,11 +31,24 @@ int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
 
-    commgrid_t grid;
     assert(commgrid_init(&grid) != -1);
 
     commgrid_log(grid, stderr);
     commgrid_free(&grid);
+
+    fasta_index_t faidx;
+    fasta_index_read(&faidx, "reads.fa.fai", &grid);
+    fasta_index_scatter(&faidx);
+
+    seq_store_t store;
+    seq_store_read(&store, "reads.fa", faidx);
+
+    fasta_index_free(&faidx);
+
+    seq_store_share(&store);
+    seq_store_log(store, "seq_store");
+
+    seq_store_free(&store);
 
     MPI_Finalize();
     return 0;

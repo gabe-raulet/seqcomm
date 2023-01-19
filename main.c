@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <mpi.h>
+#include <assert.h>
+#include "mpiutil.h"
 
 /*
  * 1. Master process reads .fai file and parses each line into a fasta record.
@@ -22,10 +23,18 @@
  * 7. At this point, every process should have access to the sequence info it needs
  *    in order to use CombBLAS.
  *
- *
  */
 
 int main(int argc, char *argv[])
 {
+    MPI_Init(&argc, &argv);
+
+    commgrid_t grid;
+    assert(commgrid_init(&grid) != -1);
+
+    commgrid_log(grid, stderr);
+    commgrid_free(&grid);
+
+    MPI_Finalize();
     return 0;
 }

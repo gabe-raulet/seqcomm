@@ -1,5 +1,5 @@
 CC=mpicc
-FLAGS=-g -O0 -fsanitize=address -fno-omit-frame-pointer -Wall -Werror -pedantic
+FLAGS=-g -O0 -fsanitize=address -fno-omit-frame-pointer -Wall
 
 all: main
 
@@ -15,8 +15,8 @@ fasta_index.o: fasta_index.c fasta_index.h
 main.o: main.c
 	$(CC) $(FLAGS) -c -o main.o main.c
 
-main: main.o fasta_index.o mpiutil.o
+main: main.o fasta_index.o mpiutil.o seq_store.o
 	$(CC) $(FLAGS) -o $@ $^
 
 clean:
-	rm -rf *.o *.dSYM
+	rm -rf *.o *.dSYM *.log

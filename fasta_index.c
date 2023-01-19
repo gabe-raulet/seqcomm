@@ -38,7 +38,6 @@ int fasta_index_read(fasta_index_t *faidx, char const *fname, commgrid_t const *
     int *sendcounts;  /* MPI_Scatterv sendcounts for FAIDX records (root only) */
     int *displs;      /* MPI_Scatterv displs for FAIDX records (root only)     */
     int recvcount;    /* MPI_Scatterv recvcount for FAIDX records              */
-    int ierr;         /* MPI error code                                        */
 
     size_t pos;         /* byte position within faidx file buffer (root only)         */
     size_t remain;      /* number of bytes remaining in faidx file buffer (root only) */
@@ -99,7 +98,7 @@ int fasta_index_read(fasta_index_t *faidx, char const *fname, commgrid_t const *
             }
 
             rec = &grecs[num_recs++];
-            sscanf(ptr, "%*s %zu %zu %zu %*zu", &rec->len, &rec->pos, &rec->width);
+            sscanf(ptr, "%*s %zu %zu %zu %*zu", &rec->len, &rec->pos, &rec->bases);
 
             /* when you get around to wanting read names, reference ../mpifa/mpifa.c */
 
@@ -109,7 +108,7 @@ int fasta_index_read(fasta_index_t *faidx, char const *fname, commgrid_t const *
         }
 
         free(buf);
-        grecs = realloc(grecs, num_recs * sizeof(fasta_index_t));
+        grecs = realloc(grecs, num_recs * sizeof(fasta_record_t));
 
         sendcounts = malloc(nprocs * sizeof(int));
         displs = malloc(nprocs * sizeof(int));
@@ -159,4 +158,32 @@ int fasta_index_read(fasta_index_t *faidx, char const *fname, commgrid_t const *
     faidx->grid = grid;
 
     return 0;
+}
+
+void fasta_index_log(const fasta_index_t faidx, char const *log_fname_prefix)
+{
+    size_t num_records;
+    int myrank;
+    char *log_fname;
+    FILE *f;
+
+    myrank = faidx.grid->gridrank;
+    num_records = faidx.num_records;
+
+    asprintf(&log_fname, "%s.rank%d.log", log_fname_prefix, myrank);
+
+    f = fopen(log_fname, "w");
+    free(log_fname);
+
+    size_t offset;
+    MPI_Exscan(&num_records, &offset, 1, MPI_SIZE_T, MPI_SUM, faidx.grid->grid_world);
+    if (!myrank) offset = 0;
+
+    for (size_t i = 0; i < num_records; ++i)
+    {
+        fasta_record_t *record = faidx.records + i;
+        fprintf(f, "%lu,%lu,%lu,%lu\n", i+offset, record->len, record->pos, record->bases);
+    }
+
+    fclose(f);
 }

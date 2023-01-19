@@ -3,6 +3,8 @@
 
 #include <mpi.h>
 #include <stdio.h>
+#include <limits.h>
+#include <stdint.h>
 
 typedef struct
 {
@@ -33,5 +35,34 @@ void mpi_fatal_error(int err, const char *file, const char *func, int line);
         }                                                    \
     } while (0)
 
+/*
+ * Make MPI_SIZE_T an alias to the correct MPI_Datatype for size_t.
+ */
+#ifndef MPI_SIZE_T
+#if SIZE_MAX == ULONG_MAX
+#define MPI_SIZE_T MPI_UNSIGNED_LONG
+#else
+#error "size_t must be unsigned long"
+#endif
+#endif
+
+/*
+ * Get the next power-of-two greater than or equal to x.
+ */
+
+static inline size_t up_size_t(size_t x)
+{
+    if (x != 0)
+        x--;
+
+    x |= x>>1;
+    x |= x>>2;
+    x |= x>>4;
+    x |= x>>8;
+    x |= x>>16;
+    x |= x>>32;
+
+    return x+1;
+}
 
 #endif

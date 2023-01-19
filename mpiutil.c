@@ -15,8 +15,8 @@ void mpi_info(MPI_Comm comm, int *myrank, int *nprocs)
         exit(-1);
     }
 
-    MPI_Comm_rank(comm, myrank);
-    MPI_Comm_size(comm, nprocs);
+    if (myrank) MPI_Comm_rank(comm, myrank);
+    if (nprocs) MPI_Comm_size(comm, nprocs);
 }
 
 void mpi_fatal_error(int err, const char *file, const char *func, int line)

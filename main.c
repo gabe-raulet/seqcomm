@@ -49,23 +49,11 @@ int main(int argc, char *argv[])
     string_store_t names = STRING_STORE_INIT;
     fasta_index_read(&faidx, faidx_fname, &names, &grid);
 
-    if (grid.gridrank == 0)
-    {
-        char *s = malloc(sstore_maxlen(names)+1);
-
-        for (size_t i = 0; i < names.num_strings; ++i)
-        {
-            sstore_get_string_copy(names, i, s);
-
-            printf("%s\n", s);
-        }
-
-        free(s);
-    }
+    sstore_mpi_bcast(&names, 0, grid.grid_world);
 
     seq_store_t store;
     seq_store_read(&store, fasta_fname, faidx);
-    /* seq_store_log(store, "orig_store", grid.grid_world); */
+    seq_store_log(store, "orig_store", &names, grid.grid_world);
     /* seq_store_info(store, "orig_info.log", &grid); */
 
     fasta_index_free(&faidx);
@@ -75,8 +63,8 @@ int main(int argc, char *argv[])
 
     /* seq_store_info(row_store, "row_info.log", &grid); */
     /* seq_store_info(col_store, "col_info.log", &grid); */
-    /* seq_store_log(row_store, "row_store", grid.grid_world); */
-    /* seq_store_log(col_store, "col_store", grid.grid_world); */
+    seq_store_log(row_store, "row_store", &names, grid.grid_world);
+    seq_store_log(col_store, "col_store", &names, grid.grid_world);
 
     seq_store_free(&store);
     commgrid_free(&grid);

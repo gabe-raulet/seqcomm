@@ -29,7 +29,7 @@ const uint8_t nt4map[256] =
     4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 };
 
-static void push(seq_store_t *store, char *s, size_t len, size_t *avail)
+static void push(seq_store_t *store, char *s, size_t len, size_t *avail, size_t id)
 {
     size_t n = (len + 3) / 4;
     size_t offset = store->numbytes;
@@ -50,8 +50,10 @@ static void push(seq_store_t *store, char *s, size_t len, size_t *avail)
         *avail = up_size_t(store->numseqs+1);
         store->lengths = realloc(store->lengths, *avail * sizeof(size_t));
         store->offsets = realloc(store->offsets, *avail * sizeof(size_t));
+        store->gids = realloc(store->gids, *avail * sizeof(size_t));
     }
 
+    store->gids[store->numseqs] = id;
     store->lengths[store->numseqs] = len;
     store->offsets[store->numseqs++] = offset;
     store->numbytes += n;
@@ -118,24 +120,27 @@ int seq_store_read(seq_store_t *store, const char *fname, const fasta_index_t fa
             locpos += (cnt+1);
         }
 
-        push(store, seqbuf, record->len, &seq_store_avail);
+        push(store, seqbuf, record->len, &seq_store_avail, i+offset);
     }
 
     store->lengths = realloc(store->lengths, store->numseqs * sizeof(size_t));
     store->offsets = realloc(store->offsets, store->numseqs * sizeof(size_t));
+    store->gids = realloc(store->gids, store->numseqs * sizeof(size_t));
 
     free(mychunk);
     return 0;
 }
 
-int seq_store_get(const seq_store_t store, size_t id, char **seq)
+int seq_store_get(const seq_store_t store, size_t lid, size_t *gid, char **seq)
 {
     static const char bases[5] = {'A', 'C', 'G', 'T', 'N'};
 
     if (!seq) return -1;
 
-    size_t len = store.lengths[id];
-    size_t offset = store.offsets[id];
+    size_t len = store.lengths[lid];
+    size_t offset = store.offsets[lid];
+
+    if (gid) *gid = store.gids[lid];
 
     char *s = realloc(*seq, len+1);
     if (s) *seq = s;
@@ -167,7 +172,7 @@ void seq_store_info(const seq_store_t store, char const *fname, commgrid_t const
     free(info);
 }
 
-void seq_store_log(const seq_store_t store, char const *fname_prefix, MPI_Comm comm)
+void seq_store_log(const seq_store_t store, char const *fname_prefix, string_store_t const *names, MPI_Comm comm)
 {
     size_t numseqs;
     int myrank;
@@ -182,17 +187,28 @@ void seq_store_log(const seq_store_t store, char const *fname_prefix, MPI_Comm c
     f = fopen(log_fname, "w");
     free(log_fname);
 
-    size_t offset;
-    MPI_Exscan(&numseqs, &offset, 1, MPI_SIZE_T, MPI_SUM, comm);
-    if (!myrank) offset = 0;
+    char *name = names? malloc(sstore_maxlen(*names)+1) : NULL;
 
     for (size_t i = 0; i < numseqs; ++i)
     {
+        size_t gid;
         char *seq = NULL;
-        seq_store_get(store, i, &seq);
-        fprintf(f, "%lu\t%s\n", offset+i, seq);
+        seq_store_get(store, i, &gid, &seq);
+
+        if (name)
+        {
+            sstore_get_string_copy(*names, gid, name);
+            fprintf(f, "%s\t%s\n", name, seq);
+        }
+        else
+        {
+            fprintf(f, "%lu\t%s\n", gid, seq);
+        }
+
         free(seq);
     }
+
+    if (name) free(name);
 }
 
 int seq_store_free(seq_store_t *store)
@@ -202,6 +218,7 @@ int seq_store_free(seq_store_t *store)
     free(store->buf);
     free(store->lengths);
     free(store->offsets);
+    free(store->gids);
     *store = (seq_store_t){0};
 
     return 0;
@@ -218,6 +235,12 @@ static inline void partial_sum(int *displs, int *counts, int n)
 /* blocking version */
 int seq_store_share(const seq_store_t send_store, seq_store_t *row_store, seq_store_t *col_store, commgrid_t const *grid)
 {
+    /*
+     * Note: this function currently is inefficient due to the many collective
+     *       MPI calls. At some point it will need to be simplified using derived
+     *       datatypes and perhaps smarter packing/unpacking.
+     */
+
     if (!row_store || !col_store || !grid)
         return -1;
 
@@ -238,8 +261,8 @@ int seq_store_share(const seq_store_t send_store, seq_store_t *row_store, seq_st
     /*
      * Initialize row and column storage structures with their size information.
      */
-    *row_store = (seq_store_t){NULL, NULL, NULL, row_info[0], row_info[1], row_info[2]};
-    *col_store = (seq_store_t){NULL, NULL, NULL, col_info[0], col_info[1], col_info[2]};
+    *row_store = (seq_store_t){NULL, NULL, NULL, NULL, row_info[0], row_info[1], row_info[2]};
+    *col_store = (seq_store_t){NULL, NULL, NULL, NULL, col_info[0], col_info[1], col_info[2]};
 
     /*
      * Allocate memory for row and column sequence storage.
@@ -247,10 +270,12 @@ int seq_store_share(const seq_store_t send_store, seq_store_t *row_store, seq_st
     row_store->buf = malloc(row_store->numbytes);
     row_store->lengths = malloc(row_store->numseqs * sizeof(size_t));
     row_store->offsets = malloc(row_store->numseqs * sizeof(size_t));
+    row_store->gids = malloc(row_store->numseqs * sizeof(size_t));
 
     col_store->buf = malloc(col_store->numbytes);
     col_store->lengths = malloc(col_store->numseqs * sizeof(size_t));
     col_store->offsets = malloc(col_store->numseqs * sizeof(size_t));
+    col_store->gids = malloc(col_store->numseqs * sizeof(size_t));
 
     int sendcnt = (int)send_store.numseqs;
     size_t row_offset = send_store.numbytes;
@@ -279,6 +304,7 @@ int seq_store_share(const seq_store_t send_store, seq_store_t *row_store, seq_st
     partial_sum(displs, recvcnts, grid->dims);
 
     MPI_Allgatherv(send_store.lengths, sendcnt, MPI_SIZE_T, row_store->lengths, recvcnts, displs, MPI_SIZE_T, grid->row_world);
+    MPI_Allgatherv(send_store.gids,    sendcnt, MPI_SIZE_T, row_store->gids,    recvcnts, displs, MPI_SIZE_T, grid->row_world);
     MPI_Allgatherv(row_offsets,        sendcnt, MPI_SIZE_T, row_store->offsets, recvcnts, displs, MPI_SIZE_T, grid->row_world);
 
     recvcnts[grid->gridrow] = sendcnt;
@@ -286,12 +312,14 @@ int seq_store_share(const seq_store_t send_store, seq_store_t *row_store, seq_st
     partial_sum(displs, recvcnts, grid->dims);
 
     MPI_Allgatherv(send_store.lengths, sendcnt, MPI_SIZE_T, col_store->lengths, recvcnts, displs, MPI_SIZE_T, grid->col_world);
+    MPI_Allgatherv(send_store.gids,    sendcnt, MPI_SIZE_T, col_store->gids,    recvcnts, displs, MPI_SIZE_T, grid->col_world);
     MPI_Allgatherv(col_offsets,        sendcnt, MPI_SIZE_T, col_store->offsets, recvcnts, displs, MPI_SIZE_T, grid->col_world);
 
     free(row_offsets);
     free(col_offsets);
 
     sendcnt = (int)send_store.numbytes;
+
     recvcnts[grid->gridcol] = sendcnt;
     MPI_Allgather(MPI_IN_PLACE, 0, MPI_INT, recvcnts, 1, MPI_INT, grid->row_world);
     partial_sum(displs, recvcnts, grid->dims);

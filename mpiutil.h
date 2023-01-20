@@ -1,6 +1,10 @@
 #ifndef MPI_UTIL_H_
 #define MPI_UTIL_H_
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <mpi.h>
 #include <stdio.h>
 #include <limits.h>

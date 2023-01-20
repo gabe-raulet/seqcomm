@@ -1,6 +1,10 @@
 #ifndef MSTRING_H_
 #define MSTRING_H_
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdarg.h>

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <limits.h>
 #include <assert.h>
+#include <stddef.h>
 
 const uint8_t nt4map[256] =
 {
@@ -122,6 +123,8 @@ int seq_store_read(seq_store_t *store, const char *fname, const fasta_index_t fa
 
         push(store, seqbuf, record->len, &seq_store_avail, i+offset);
     }
+
+    free(seqbuf);
 
     store->lengths = realloc(store->lengths, store->numseqs * sizeof(size_t));
     store->offsets = realloc(store->offsets, store->numseqs * sizeof(size_t));

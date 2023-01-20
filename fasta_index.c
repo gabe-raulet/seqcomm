@@ -4,9 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <ctype.h>
 
-
-int fasta_index_read(fasta_index_t *faidx, char const *fname, commgrid_t const *grid)
+int fasta_index_read(fasta_index_t *faidx, char const *fname, string_store_t *names, commgrid_t const *grid)
 {
     int nprocs;       /* number of processes in comm                           */
     int myrank;       /* my process id in comm                                 */
@@ -75,7 +75,13 @@ int fasta_index_read(fasta_index_t *faidx, char const *fname, commgrid_t const *
             rec = &grecs[num_recs++];
             sscanf(ptr, "%*s %zu %zu %zu %*zu", &rec->len, &rec->pos, &rec->bases);
 
-            /* when you get around to wanting read names, reference ../mpifa/mpifa.c */
+            size_t namelen;
+
+            for (namelen = 0; namelen < linesize; ++namelen)
+                if (isspace(ptr[namelen]))
+                    break;
+
+            sstore_push(names, ptr, namelen);
 
             pos += linesize;
             ptr = &buf[++pos];

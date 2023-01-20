@@ -197,7 +197,6 @@ int sstore_mpi_scatter(const string_store_t *sendstore, string_store_t *recvstor
     // Every process needs to know the string_store displacements for the strings it receives.
 
     int globsize;
-    size_t *displs_sendbuf;
     size_t *displs_recvbuf;
     char *char_recvbuf;
     int *string_sendcounts;

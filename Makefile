@@ -12,10 +12,13 @@ seq_store.o: seq_store.c seq_store.h
 fasta_index.o: fasta_index.c fasta_index.h
 	$(CC) $(FLAGS) -c -o fasta_index.o fasta_index.c
 
+mstring.o: mstring.c mstring.h
+	$(CC) $(FLAGS) -c -o mstring.o mstring.c
+
 main.o: main.c
 	$(CC) $(FLAGS) -c -o main.o main.c
 
-main: main.o fasta_index.o mpiutil.o seq_store.o
+main: main.o fasta_index.o mpiutil.o seq_store.o mstring.o
 	$(CC) $(FLAGS) -o $@ $^
 
 clean:

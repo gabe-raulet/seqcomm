@@ -1,0 +1,3 @@
+fasta_index_read: min=0.002886, max=0.003082, avg=0.002979 [seconds]
+seq_store_read: min=0.128943, max=0.130250, avg=0.129926 [seconds]
+seq_store_share: min=0.020552, max=0.021605, avg=0.020997 [seconds]

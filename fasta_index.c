@@ -75,13 +75,16 @@ int fasta_index_read(fasta_index_t *faidx, char const *fname, string_store_t *na
             rec = &grecs[num_recs++];
             sscanf(ptr, "%*s %zu %zu %zu %*zu", &rec->len, &rec->pos, &rec->bases);
 
-            size_t namelen;
+            if (names != NULL)
+            {
+                size_t namelen;
 
-            for (namelen = 0; namelen < linesize; ++namelen)
-                if (isspace(ptr[namelen]))
-                    break;
+                for (namelen = 0; namelen < linesize; ++namelen)
+                    if (isspace(ptr[namelen]))
+                        break;
 
-            sstore_push(names, ptr, namelen);
+                sstore_push(names, ptr, namelen);
+            }
 
             pos += linesize;
             ptr = &buf[++pos];
